@@ -1,0 +1,693 @@
+import ilog.concert.IloException;
+import ilog.concert.IloLinearNumExpr;
+import ilog.concert.IloNumExpr;
+import ilog.concert.IloNumVar;
+import ilog.concert.IloNumVarType;
+import ilog.concert.IloObjective;
+import ilog.cplex.IloCplex;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.HashSet;
+import jxl.read.biff.BiffException;
+
+public class Main{
+
+    //*****************************Sets*******************************
+    static int T = 6; //Time Horizon
+    static int P = 5; //Potential Locations of Tow Truck, 5 YOLDA DA DURABİLİR
+    static int M = 4; // Number of Vehicles
+    static int A = 5; // Number of road
+    static int Is; // Number of Incident/ID of Incident
+    static int S;//Number of Scenerio
+    static double[][][] alfa = new double[A + 1][A + 1][T + 1]; //alfa[ai][b][t], a. yoldaki  kazanın t periyot saonraki velocity on arc b
+
+    static HashSet<Integer> Aset[][] = new HashSet[A + 1][T + 1];
+    static HashSet<Integer> Bset[][] = new HashSet[A + 1][T + 1];
+
+    //***************************Parameters*********************************
+    static int[][] v = new int[A + 1][T + 1]; // v[a][t] , a.yolun t.periyottaki standart hızı , integer
+    static int[][] k = new int[A + 1][A + 1]; // k[a][b],  number of period to go from arc a to arc b, integer
+
+    static HashMap<Integer, Incident> IncidentH = new HashMap<Integer, Incident>();
+    static HashMap<Integer, Scenerio> ScenerioH = new HashMap<Integer, Scenerio>();
+
+    public static void main(String[] args) throws IOException, BiffException, IloException {
+
+        for (int a = 1; a <= A; a++) {
+            for (int b = 1; b <= A; b++) {
+                for (int t = 1; t <= T; t++) {
+                    alfa[a][b][t] = 0.1;
+                }
+            }
+        }
+
+        //Giving value to all parameters
+        ReadExcel.giveValueToParameters();
+        Is = ReadExcel.ExcelReader.numberOfIncident();
+        S = ReadExcel.ExcelReader.numberOfScenerio();
+
+        //buraya try catch yazmalısın ama onun yerine main methodda twrows kullandın 
+        IloCplex cplex = new IloCplex();
+
+        //**************** Desicion Variables******************************************
+        // V[s][a][t], s.senorya da, a.yolun t.zamandaki hızı
+        IloNumVar[][][] V = new IloNumVar[S + 1][A + 1][T + 1];
+
+        for (int s = 1; s <= S; s++) {
+            for (int a = 1; a <= A; a++) {
+                for (int t = 1; t <= T; t++) {
+                    V[s][a][t] = cplex.numVar(0, 250, IloNumVarType.Float, "V_" + s + "_" + a + "_" + t);
+                }
+            }
+        }
+
+        //Y[s][m][i][t], i. kazaya m tipi araç t.periyotta müdahale ediyorsa
+        IloNumVar[][][][] Y = new IloNumVar[S + 1][M + 1][Is + 1][T + 1];
+
+        for (int s = 1; s <= S; s++) {
+
+            for (int m = 1; m <= M; m++) {
+
+                for (int i = 1; i <= Is; i++) {
+
+                    for (int t = 1; t <= T; t++) {
+
+                        Y[s][m][i][t] = cplex.numVar(0, 1, IloNumVarType.Bool, "Y_" + s + "_" + m + "_" + i + "_" + t);
+
+                    }
+                }
+            }
+        }
+
+        //R[s][m][i][t], i.kaza için  m tipi araç t.periyotta yoldaysa
+        IloNumVar[][][][] R = new IloNumVar[S + 1][M + 1][Is + 1][T + 1];
+
+        for (int s = 1; s <= S; s++) {
+
+            for (int m = 1; m <= M; m++) {
+
+                for (int i = 1; i <= Is; i++) {
+
+                    for (int t = 1; t <= T; t++) {
+
+                        R[s][m][i][t] = cplex.numVar(0, 1, IloNumVarType.Bool, "R_" + s + "_" + m + "_" + i + "_" + t);
+
+                    }
+                }
+            }
+        }
+
+        //W[s][m][i][t], i. kazaya m tipi araç t.periyotta atandıysa
+        IloNumVar[][][][] W = new IloNumVar[S + 1][M + 1][Is + 1][T + 1];
+
+        for (int s = 1; s <= S; s++) {
+
+            for (int m = 1; m <= M; m++) {
+
+                for (int i = 1; i <= Is; i++) {
+
+                    for (int t = 1; t <= T; t++) {
+
+                        W[s][m][i][t] = cplex.numVar(0, 1, IloNumVarType.Bool, "W_" + s + "_" + m + "_" + i + "_" + t);
+
+                    }
+                }
+            }
+        }
+
+        //X[s][i][t], i.kazaya t.periyotta müdahale ediliyorsa
+        IloNumVar[][][] X = new IloNumVar[S + 1][Is + 1][T + 1];
+
+        for (int s = 1; s <= S; s++) {
+
+            for (int i = 1; i <= Is; i++) {
+
+                for (int t = 1; t <= T; t++) {
+
+                    X[s][i][t] = cplex.numVar(0, 1, IloNumVarType.Bool, "X_" + s + "_" + i + "_" + t);
+
+                }
+            }
+        }
+
+        //Z[s][p][m][t], p.yolda m tipi araç t.periyotta bekliyorsa(o yola atanmış), s senoryasına göre
+        IloNumVar[][][][] Z = new IloNumVar[S + 1][P + 1][M + 1][T + 1];
+
+        for (int s = 1; s <= S; s++) {
+
+            for (int pp = 1; pp <= P; pp++) {
+
+                for (int m = 1; m <= M; m++) {
+
+                    for (int t = 1; t <= T; t++) {
+
+                        Z[s][pp][m][t] = cplex.numVar(0, 1, IloNumVarType.Int, "Z_" + s + "_" + pp + "_" + m + "_" + t);
+
+                    }
+                }
+            }
+        }
+
+        //L[p][m][t], p.yolda m tipi araç t.periyotta bekliyorsa(o yola atanmış),
+        IloNumVar[][][] L = new IloNumVar[P + 1][M + 1][T + 1];
+
+        for (int pp = 1; pp <= P; pp++) {
+
+            for (int m = 1; m <= M; m++) {
+
+                for (int t = 1; t <= T; t++) {
+
+                    L[pp][m][t] = cplex.numVar(0, 1, IloNumVarType.Int, "L_" + pp + "_" + m + "_" + t);
+
+                }
+            }
+        }
+
+        //********************Objective*****************************
+        //1-Objective function
+        IloLinearNumExpr expr_obj = cplex.linearNumExpr();
+
+        for (Integer key : ScenerioH.keySet()) {
+
+            for (int a = 1; a <= A; a++) {
+
+                for (int t = 1; t <= T; t++) {
+
+                    expr_obj.addTerm(ScenerioH.get(key).ps, V[key][a][t]);
+
+                }
+
+            }
+        }
+
+        IloObjective obj = cplex.addMaximize(expr_obj);
+
+        //********************Subject To*****************************        
+        //2-hız degisimi
+        for (Integer key : ScenerioH.keySet()) {
+
+            for (int t = 1; t <= T - 1; t++) {
+
+                for (int a = 1; a <= A; a++) {
+
+                    IloLinearNumExpr expr1 = cplex.linearNumExpr();
+
+                    for (Integer i : IncidentH.keySet()) {
+
+                        if (ScenerioH.get(key).ScenerioI.contains(IncidentH.get(i))) {
+
+                            if (IncidentH.get(i).ti <= t && ((HashSet<Integer>) Bset[a][t - IncidentH.get(i).ti]).contains(IncidentH.get(i).ai)) {
+
+                                for (int t1 = t + 1; t1 <= T; t1++) {
+
+                                    expr1.addTerm(alfa[IncidentH.get(i).ai][a][t - IncidentH.get(i).ti], X[key][i][t1]);
+                                }
+                            }
+                        }
+                    }
+
+                    IloNumExpr expr1_1 = cplex.diff(1, expr1);
+
+                    IloNumExpr expr1_2 = cplex.prod(v[a][t], expr1_1);
+
+                    cplex.addEq(V[key][a][t], expr1_2);
+
+                }
+            }
+        }
+
+        //3
+        for (Integer key : ScenerioH.keySet()) {
+
+            for (int t = 1; t <= T; t++) {
+
+                for (int m = 1; m <= M; m++) {
+
+                    IloLinearNumExpr expr2 = cplex.linearNumExpr();
+
+                    for (Integer i : IncidentH.keySet()) {
+
+                        if (ScenerioH.get(key).ScenerioI.contains(IncidentH.get(i))) {
+
+                            if (IncidentH.get(i).ti <= t) {
+
+                                expr2.addTerm(1.0, Y[key][m][i][t]);
+                            }
+                        }
+                    }
+                    for (Integer i : IncidentH.keySet()) {
+
+                        if (ScenerioH.get(key).ScenerioI.contains(IncidentH.get(i))) {
+                            expr2.addTerm(1.0, R[key][m][i][t]);
+
+                        }
+                    }
+
+                    for (int p = 1; p <= P; p++) {
+
+                        expr2.addTerm(1.0, Z[key][p][m][t]);
+
+                    }
+
+                    cplex.addEq(expr2, 1);
+                }
+            }
+        }
+
+        // 4
+        for (Integer key : ScenerioH.keySet()) {
+
+            for (Integer i : IncidentH.keySet()) {
+
+                if (ScenerioH.get(key).ScenerioI.contains(IncidentH.get(i))) {
+
+                    for (int m = 1; m <= M; m++) {
+
+                        for (int t2 = IncidentH.get(i).ti + 1; t2 <= T; t2++) {
+
+                            IloLinearNumExpr expr1 = cplex.linearNumExpr();
+
+                            for (int t = IncidentH.get(i).ti + 1; t <= t2 - 1; t++) {
+
+                                expr1.addTerm(1, R[key][m][i][t]);
+                            }
+
+                            double tmp = (t2 - IncidentH.get(i).ti - 1) / 2;
+
+                            IloNumExpr expr1_1 = cplex.linearNumExpr();
+
+                            expr1_1 = cplex.sum(Y[key][m][i][t2], W[key][m][i][IncidentH.get(i).ti]);
+
+                            IloNumExpr expr1_2 = cplex.linearNumExpr();
+                            expr1_2 = cplex.prod(tmp, expr1_1);
+
+                            cplex.addEq(expr1, expr1_2);
+                        }
+                    }
+                }
+            }
+        }
+
+        //5
+        for (Integer key : ScenerioH.keySet()) {
+
+            for (Integer i : IncidentH.keySet()) {
+
+                if (ScenerioH.get(key).ScenerioI.contains(IncidentH.get(i))) {
+
+                    for (int t = 1; t <= T; t++) {
+
+                        IloLinearNumExpr expr1 = cplex.linearNumExpr();
+
+                        for (int m = 1; m <= M; m++) {
+
+                            expr1.addTerm(1.0, Y[key][m][i][t]);
+
+                        }
+
+                        cplex.addEq(X[key][i][t], expr1);
+
+                    }
+                }
+            }
+        }
+
+        //6
+        for (Integer key : ScenerioH.keySet()) {
+
+            for (int t = 1; t <= T; t++) {
+
+                for (int m = 1; m <= M; m++) {
+
+                    IloLinearNumExpr expr1 = cplex.linearNumExpr();
+
+                    for (Integer i : IncidentH.keySet()) {
+
+                        if (ScenerioH.get(key).ScenerioI.contains(IncidentH.get(i))) {
+
+                            expr1.addTerm(1.0, Y[key][m][i][t]);
+
+                        }
+
+                        cplex.addLe(expr1, 1);
+
+                    }
+                }
+            }
+        }
+
+        //7
+        for (Integer key : ScenerioH.keySet()) {
+
+            for (int t = 1; t <= T; t++) {
+
+                for (Integer i : IncidentH.keySet()) {
+
+                    if (ScenerioH.get(key).ScenerioI.contains(IncidentH.get(i))) {
+
+                        IloLinearNumExpr expr1 = cplex.linearNumExpr();
+
+                        for (int m = 1; m <= M; m++) {
+
+                            expr1.addTerm(1.0, Y[key][m][i][t]);
+
+                        }
+
+                        cplex.addLe(expr1, 1);
+
+                    }
+                }
+            }
+        }
+
+        //8
+        for (Integer key : ScenerioH.keySet()) {
+
+            for (int t = 1; t <= T; t++) {
+
+                for (int m = 1; m <= M; m++) {
+
+                    IloLinearNumExpr expr1 = cplex.linearNumExpr();
+
+                    for (int p = 1; p <= P; p++) {
+
+                        expr1.addTerm(1.0, Z[key][p][m][t]);
+
+                    }
+
+                    cplex.addLe(expr1, 1);
+                }
+            }
+        }
+
+        //9
+        for (Integer key : ScenerioH.keySet()) {
+
+            for (Integer i : IncidentH.keySet()) {
+
+                if (ScenerioH.get(key).ScenerioI.contains(IncidentH.get(i))) {
+
+                    for (int m = 1; m <= M; m++) {
+
+                        IloLinearNumExpr expr1 = cplex.linearNumExpr();
+
+                        for (int t1 = IncidentH.get(i).ti; t1 <= T; t1++) {
+
+                            expr1.addTerm(1.0, Y[key][m][i][t1]);
+
+                        }
+
+                        cplex.addEq(expr1, W[key][m][i][IncidentH.get(i).ti]);
+                    }
+                }
+            }
+        }
+
+        //10
+        for (Integer key : ScenerioH.keySet()) {
+
+            for (int t = 1; t <= T; t++) {
+
+                for (Integer i : IncidentH.keySet()) {
+
+                    if (ScenerioH.get(key).ScenerioI.contains(IncidentH.get(i))) {
+
+                        IloLinearNumExpr expr1 = cplex.linearNumExpr();
+
+                        for (int m = 1; m <= M; m++) {
+
+                            expr1.addTerm(1.0, W[key][m][i][t]);
+                        }
+
+                        cplex.addLe(expr1, 1);
+
+                    }
+                }
+            }
+        }
+
+        //11
+        for (Integer key : ScenerioH.keySet()) {
+
+            for (Integer i : IncidentH.keySet()) {
+
+                if (ScenerioH.get(key).ScenerioI.contains(IncidentH.get(i))) {
+
+                    for (int t = 1; t < IncidentH.get(i).ti; t++) {
+
+                        IloLinearNumExpr expr1 = cplex.linearNumExpr();
+
+                        cplex.addEq(0, X[key][i][t]);
+
+                    }
+                }
+            }
+        }
+
+        //12
+        for (Integer key : ScenerioH.keySet()) {
+
+            for (Integer i : IncidentH.keySet()) {
+
+                if (ScenerioH.get(key).ScenerioI.contains(IncidentH.get(i))) {
+
+                    for (int t = IncidentH.get(i).ti; t <= T; t++) {
+
+                        for (int m = 1; m <= M; m++) {
+
+                            IloLinearNumExpr expr1 = cplex.linearNumExpr();
+
+                            for (int p = 1; p <= P; p++) {
+
+                                if (t > k[p][IncidentH.get(i).ai]) {
+
+                                    expr1.addTerm(1.0, Z[key][p][m][t - k[p][IncidentH.get(i).ai]]);
+
+                                }
+                            }
+                            cplex.addLe(Y[key][m][i][t], expr1);
+                        }
+                    }
+                }
+            }
+        }
+
+        //13
+        for (int p = 1; p <= P; p++) {
+
+            for (int m = 1; m <= M; m++) {
+
+                for (int t = 1; t <= T; t++) {
+
+                    for (Integer key : ScenerioH.keySet()) {
+
+                        cplex.addGe(L[p][m][t], Z[key][p][m][t]);
+                    }
+                }
+
+            }
+        }
+
+        //14
+        for (int t = 1; t <= T; t++) {
+
+            for (int m = 1; m <= M; m++) {
+
+                IloLinearNumExpr expr1 = cplex.linearNumExpr();
+
+                for (int p = 1; p <= P; p++) {
+
+                    expr1.addTerm(1.0, L[p][m][t]);
+
+                }
+
+                cplex.addEq(expr1, 1);
+            }
+        }
+
+        //EXTRA 1
+        for (Integer key : ScenerioH.keySet()) {
+
+            for (Integer i : IncidentH.keySet()) {
+
+                if (ScenerioH.get(key).ScenerioI.contains(IncidentH.get(i))) {
+
+                    IloLinearNumExpr expr1 = cplex.linearNumExpr();
+
+                    for (int t = 1; t <= T; t++) {
+                        
+                        expr1.addTerm(1.0, X[key][i][t]);
+                    
+                    }
+                    
+                    cplex.addEq(expr1, 1);
+                }
+            }
+        }
+
+        /*   //EXTRA 2
+        for (Integer key : ScenerioH.keySet()) {
+
+            for (int t = 1; t <= T; t++) {
+                for (Integer i : IncidentH.keySet()) {
+
+                    if (ScenerioH.get(key).ScenerioI.contains(IncidentH.get(i))) {
+
+                        IloLinearNumExpr expr1 = cplex.linearNumExpr();
+
+                        for (int m = 1; m <= M; m++) {
+                            if (t==IncidentH.get(i).ti) {
+                                expr1.addTerm(1.0, W[key][m][i][t]);
+                            }
+                        }
+
+                        cplex.addEq(expr1, 1);
+
+                    }
+                }
+            }
+        }*/
+        //cplex.writeSolutions("result.sav");
+        cplex.exportModel("model.lp");
+        if (cplex.solve()) {
+            System.out.println();
+            System.out.println("-----RESULTS-----");
+            System.out.println("Solution status: " + cplex.getStatus());
+            System.out.println();
+            //double Speed = cplex.getValue(expr_obj);
+            System.out.println("Total Speed: " + +cplex.getObjValue());
+            System.out.println();
+
+            for (int p = 1; p <= P; p++) {
+
+                for (int m = 1; m <= M; m++) {
+
+                    for (int t = 1; t <= T; t++) {
+
+                        if (cplex.getValue(L[p][m][t]) == 1) {
+
+                            System.out.println("L_" + p + "_" + m + "_" + t + ": " + cplex.getValue(L[p][m][t]));
+                        }
+                    }
+                }
+            }
+            for (Integer key : ScenerioH.keySet()) {
+
+                for (Integer i : IncidentH.keySet()) {
+
+                    if (ScenerioH.get(key).ScenerioI.contains(IncidentH.get(i))) {
+
+                        for (int t = 1; t <= T; t++) {
+
+                            if (cplex.getValue(X[key][i][t]) == 1) {
+
+                                System.out.println("X_" + key + "_" + i + "_" + t + ": " + cplex.getValue(X[key][i][t]));
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (Integer key : ScenerioH.keySet()) {
+
+                for (int t = 1; t <= T; t++) {
+
+                    for (int m = 1; m <= M; m++) {
+
+                        for (Integer i : IncidentH.keySet()) {
+
+                            if (ScenerioH.get(key).ScenerioI.contains(IncidentH.get(i))) {
+
+                                if (cplex.getValue(Y[key][m][i][t]) == 1) {
+
+                                    System.out.println("Y_" + key + "_" + m + "_" + i + "_" + t + ": " + cplex.getValue(Y[key][m][i][t]));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+        } else {
+            System.out.println("model is infeasible");
+        }
+
+        // close cplex        
+        cplex.end();
+
+    }
+
+}
+
+
+/*for (Integer key : ScenerioH.keySet()) {
+                    for (Integer i : IncidentH.keySet()) {
+                        if(ScenerioH.get(key).ScenerioI.contains(IncidentH.get(i))){
+           System.out.println(ScenerioH.get(key).ScenerioI.contains(IncidentH.get(i)));
+                        System.out.println(i+"  ınci kazayı okudu");
+                        }}
+                               }
+
+
+     
+       
+         
+          IloCplex cplex = new IloCplex();
+        
+        //Y[s][m][i][t], i. kazaya m tipi araç t.periyotta müdahale ediyorsa
+        IloNumVar[][][][] Y = new IloNumVar[S + 1][M + 1][Is + 1][T + 1];
+
+        for (int s = 1; s <= S; s++) {
+
+            for (int m = 1; m <= M; m++) {
+
+                for (int i = 1; i <= Is; i++) {
+
+                    for (int t = 1; t <= T; t++) {
+
+                        Y[s][m][i][t] = cplex.numVar(0, 1, IloNumVarType.Bool, "Y_" + s + "_" + m + "_" + i + "_" + t);
+
+                    }
+                }
+            }
+        }
+        
+        
+        // V[s][a][t], s.senorya da, a.yolun t.zamandaki hızı
+        IloNumVar[][][] V = new IloNumVar[S + 1][A + 1][T + 1];
+        for (int s = 1; s <= S; s++) {
+            for (int a = 1; a <= A; a++) {
+                for (int t = 1; t <= T; t++) {
+                    V[s][a][t] = cplex.numVar(0, 250, IloNumVarType.Float, "V_" + s + "_" + a + "_" + t);
+                }
+            }
+        }
+        
+ 
+         
+       for (Integer key : ScenerioH.keySet()) {
+
+            for (int t = 1; t <= T; t++) {
+
+                for (Integer i : IncidentH.keySet()) {
+
+                    if (ScenerioH.get(key).ScenerioI.contains(IncidentH.get(i))) {
+
+                        
+                        IloLinearNumExpr expr1 = cplex.linearNumExpr();
+
+                        for (int m = 1; m <= M; m++) {
+
+                            expr1.addTerm(1.0, Y[key][m][i][t]);
+
+                        }
+
+                        cplex.addLe(expr1, 1);
+
+                    }
+                }
+            }
+        }
+        cplex.exportModel("modeldeneme.lp");
+
+ */
