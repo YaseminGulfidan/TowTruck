@@ -1,0 +1,25 @@
+public class Incident {
+
+    public int si;
+    public int ai;
+    public int ti;
+    private double ps;
+
+    public Incident(int si, int ai, int ti, double ps) {
+
+        this.si = si;
+        this.ai = ai;
+        this.ti = ti;
+        this.ps = ps;
+
+    }
+
+    public double getPs() {
+        return ps;
+    }
+
+    public void setPs(double ps) {
+        this.ps = ps;
+    }
+
+}
