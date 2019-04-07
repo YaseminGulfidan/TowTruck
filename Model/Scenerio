@@ -1,0 +1,15 @@
+import java.util.*;
+
+public class Scenerio {
+
+    public double ps;
+    public List<Incident> ScenerioI;
+
+    public Scenerio(double ps, List h) {
+
+        this.ps = ps;
+        this.ScenerioI = new ArrayList<>(h);
+
+    }
+
+}
