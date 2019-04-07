@@ -1,0 +1,250 @@
+
+import java.io.File;
+import java.io.IOException;
+import java.util.*;
+import jxl.Cell;
+import jxl.Sheet;
+import jxl.Workbook;
+import jxl.read.biff.BiffException;
+
+public class ReadExcel {
+
+    
+
+    //Okuyacağımız excel dosyasının yolunu veriyoruz.
+    private String DosyaYolu;
+
+    static ReadExcel ExcelReader = new ReadExcel();
+
+    public void setExcelDostaYolu(String DosyaYolum) {
+
+        this.DosyaYolu = DosyaYolum;
+
+    }
+
+    public int numberOfIncident() throws IOException, BiffException {
+        //Verilen dosya yoluna göre bir dosya oluşturuyor.
+        File DosyaExcel = new File(this.DosyaYolu);
+
+        //Excel 'den calisma kitabını alıyoruz.
+        Workbook CalismaKitabi = Workbook.getWorkbook(DosyaExcel);
+
+        //Aldığımız çalışma kitabı yani çalışma alanından ilk excel sayfasını alıyoruz.
+        Sheet ExcelSayfasi1 = CalismaKitabi.getSheet("Scenerio");
+
+        return ExcelSayfasi1.getRows() - 1;
+    }
+
+    //Excelden okuma işlemi yapacak olan metod.
+    public void excelStandartSpeed() throws IOException, BiffException {
+
+        //Verilen dosya yoluna göre bir dosya oluşturuyor.
+        File DosyaExcel = new File(this.DosyaYolu);
+
+        //Excel 'den calisma kitabını alıyoruz.
+        Workbook CalismaKitabi = Workbook.getWorkbook(DosyaExcel);
+
+        //Aldığımız çalışma kitabı yani çalışma alanından ilk excel sayfasını alıyoruz.
+        Sheet ExcelSayfasi1 = CalismaKitabi.getSheet("StandartSpeed");
+
+        for (int a = 1; a < ExcelSayfasi1.getRows(); a++) {//excel sayfasının sütunlarının sayısına kadar
+
+            for (int t = 1; t < ExcelSayfasi1.getColumns(); t++) {//excel sayfasının satırlarının sayısına kadar.
+
+                Cell Hucre = ExcelSayfasi1.getCell(t, a);//Bir hücre oluştur.Bu hücreyi excel sayfasından al.
+
+                TowTruck3.v[a][t] = Integer.parseInt(Hucre.getContents());
+                // System.out.println(v[a][t]);
+
+            }
+        }
+    }
+
+    public void excelDmatrix() throws IOException, BiffException {
+
+        //Verilen dosya yoluna göre bir dosya oluşturuyor.
+        File DosyaExcel = new File(this.DosyaYolu);
+
+        //Excel 'den calisma kitabını alıyoruz.
+        Workbook CalismaKitabi = Workbook.getWorkbook(DosyaExcel);
+
+        //Aldığımız çalışma kitabı yani çalışma alanından ilk excel sayfasını alıyoruz.
+        Sheet ExcelSayfasi1 = CalismaKitabi.getSheet("Dmatrix");
+
+        for (int a = 1; a < ExcelSayfasi1.getRows(); a++) {//excel sayfasının sütunlarının sayısına kadar
+
+            for (int b = 1; b < ExcelSayfasi1.getColumns(); b++) {//excel sayfasının satırlarının sayısına kadar.
+
+                Cell Hucre = ExcelSayfasi1.getCell(a, b);//Bir hücre oluştur.Bu hücreyi excel sayfasından al.
+
+                TowTruck3.k[a][b] = Integer.parseInt(Hucre.getContents());
+                //System.out.println(k[a][b]);
+
+            }
+        }
+    }
+
+    public void excelAsetBset() throws IOException, BiffException {
+
+        for (int i = 0; i < TowTruck3.A + 1; i++) {
+            for (int t = 0; t < TowTruck3.T + 1; t++) {
+                TowTruck3.Aset[i][t] = new HashSet<Integer>();
+            }
+        }
+
+        for (int i = 0; i < TowTruck3.A + 1; i++) {
+            for (int t = 0; t < TowTruck3.T + 1; t++) {
+                TowTruck3.Bset[i][t] = new HashSet<Integer>();
+            }
+        }
+
+        //Verilen dosya yoluna göre bir dosya oluşturuyor.
+        File DosyaExcel = new File(this.DosyaYolu);
+
+        //Excel 'den calisma kitabını alıyoruz.
+        Workbook CalismaKitabi = Workbook.getWorkbook(DosyaExcel);
+
+        //Aldığımız çalışma kitabı yani çalışma alanından ilk excel sayfasını alıyoruz.
+        Sheet ExcelSayfasi1 = CalismaKitabi.getSheet("Ait");
+
+        for (int a = 1; a < ExcelSayfasi1.getRows() - 1; a++) {//excel sayfasının sütunlarının sayısına kadar
+
+            for (int t = 1; t < ExcelSayfasi1.getColumns(); t++) {//excel sayfasının satırlarının sayısına kadar.
+
+                Cell Hucre = ExcelSayfasi1.getCell(t, a);//Bir hücre oluştur.Bu hücreyi excel sayfasından al.
+
+                String[] arrSplit = Hucre.getContents().split(",");
+                for (int bol = 0; bol < arrSplit.length; bol++) {
+                    if (arrSplit[bol] != "") {
+                        TowTruck3.Aset[a][t].add(Integer.parseInt(arrSplit[bol]));
+                        // System.out.println(arrSplit[bol]);
+                    }
+                }
+
+            }
+
+        }
+
+        for (int i = 1; i <= TowTruck3.A ; i++) {
+            for (int t = 1; t <= TowTruck3.T; t++) {
+                for (int j = 1; j <= TowTruck3.A ; j++) {
+                    if (((HashSet<Integer>) TowTruck3.Aset[i][t]).contains(j)) {
+
+                        ((HashSet<Integer>) TowTruck3.Bset[j][t]).add(i);
+
+                    }
+                }
+                //System.out.println( (HashSet<Integer>)Bset[i][t]);
+
+            }
+        }
+
+    }
+
+    public void excelIncident() throws IOException, BiffException {
+
+        //Verilen dosya yoluna göre bir dosya oluşturuyor.
+        File DosyaExcel = new File(this.DosyaYolu);
+
+        //Excel 'den calisma kitabını alıyoruz.
+        Workbook CalismaKitabi = Workbook.getWorkbook(DosyaExcel);
+
+        //Aldığımız çalışma kitabı yani çalışma alanından ilk excel sayfasını alıyoruz.
+        Sheet ExcelSayfasi1 = CalismaKitabi.getSheet("Scenerio");
+
+        for (int satir = 1; satir < ExcelSayfasi1.getRows(); satir++) {
+
+            int ai = 0;
+            int ti = 0;
+            int si = 0;
+            int inc = 0;
+            double ps = 0;
+
+            for (int sutun = 0; sutun < 5; sutun++) {
+
+                if (sutun == 0) { //senaryo  oku
+                    Cell Hucre = ExcelSayfasi1.getCell(sutun, satir);
+                    si = Integer.parseInt(Hucre.getContents());
+
+                }
+
+                if (sutun == 1) { //probability oku
+                    Cell Hucre = ExcelSayfasi1.getCell(sutun, satir);
+                    String replace=Hucre.getContents().replaceAll(",",".");
+                    ps = Double.valueOf(replace);
+                }
+
+                if (sutun == 2) { //Incident oku
+                    Cell Hucre = ExcelSayfasi1.getCell(sutun, satir);
+                    inc = Integer.parseInt(Hucre.getContents());
+                }
+
+                if (sutun == 3) { // ai oku
+                    Cell Hucre = ExcelSayfasi1.getCell(sutun, satir);
+                    ai = Integer.parseInt(Hucre.getContents());
+
+                }
+
+                if (sutun == 4) { //ti oku
+
+                    Cell Hucre = ExcelSayfasi1.getCell(sutun, satir);
+                    ti = Integer.parseInt(Hucre.getContents());
+
+                }
+
+            }
+
+            Incident obj = new Incident(si, ai, ti, ps);
+            TowTruck3.IncidentH.put(inc, obj);
+
+            // System.out.println(TowTruck3.IncidentH.get(inc).ai);
+        }
+    }
+
+    //  Senaryo sayisi alıypruz
+    public int numberOfScenerio() {
+
+        int numberOfScenerio = 0;
+        for (Integer key : TowTruck3.IncidentH.keySet()) {
+
+            numberOfScenerio = Math.max(numberOfScenerio, TowTruck3.IncidentH.get(key).si);
+        }
+
+        return numberOfScenerio;
+    }
+
+    public void giveValueScenerio() throws IOException, BiffException {
+
+        for (int s = 1; s <= numberOfScenerio(); s++) {
+
+            List<Incident> h = new ArrayList<>();
+            double po = 0;
+           //  h.add(null); 0 dan başlama problemi
+            for (Integer key : TowTruck3.IncidentH.keySet()) {
+
+              
+                if (s == TowTruck3.IncidentH.get(key).si) {
+                    h.add(TowTruck3.IncidentH.get(key));
+                    po = TowTruck3.IncidentH.get(key).getPs();
+                }
+
+            }
+
+            Scenerio sce = new Scenerio(po, h);
+            TowTruck3.ScenerioH.put(s, sce);
+
+        }
+    }
+
+    public static void giveValueToParameters() throws IOException, BiffException {
+
+        ExcelReader.setExcelDostaYolu("C:/Users/Yasemin/Desktop/veri1.xls");
+        ExcelReader.excelStandartSpeed();
+        ExcelReader.excelDmatrix();
+        ExcelReader.excelAsetBset();
+        ExcelReader.excelIncident();
+        ExcelReader.giveValueScenerio();
+        
+
+    }
+}
