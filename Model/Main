@@ -1,3 +1,5 @@
+
+
 import ilog.concert.IloException;
 import ilog.concert.IloLinearNumExpr;
 import ilog.concert.IloNumExpr;
@@ -10,7 +12,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import jxl.read.biff.BiffException;
 
-public class Main{
+public class Main {
 
     //*****************************Sets*******************************
     static int T = 6; //Time Horizon
@@ -481,6 +483,7 @@ public class Main{
 
                     for (Integer key : ScenerioH.keySet()) {
 
+                        
                         cplex.addGe(L[p][m][t], Z[key][p][m][t]);
                     }
                 }
@@ -504,28 +507,11 @@ public class Main{
                 cplex.addEq(expr1, 1);
             }
         }
+        
+        
 
         //EXTRA 1
-        for (Integer key : ScenerioH.keySet()) {
-
-            for (Integer i : IncidentH.keySet()) {
-
-                if (ScenerioH.get(key).ScenerioI.contains(IncidentH.get(i))) {
-
-                    IloLinearNumExpr expr1 = cplex.linearNumExpr();
-
-                    for (int t = 1; t <= T; t++) {
-                        
-                        expr1.addTerm(1.0, X[key][i][t]);
-                    
-                    }
-                    
-                    cplex.addEq(expr1, 1);
-                }
-            }
-        }
-
-        /*   //EXTRA 2
+        
         for (Integer key : ScenerioH.keySet()) {
 
             for (int t = 1; t <= T; t++) {
@@ -546,7 +532,8 @@ public class Main{
                     }
                 }
             }
-        }*/
+       
+       
         //cplex.writeSolutions("result.sav");
         cplex.exportModel("model.lp");
         if (cplex.solve()) {
@@ -691,3 +678,46 @@ public class Main{
         cplex.exportModel("modeldeneme.lp");
 
  */
+
+/*
+        //EXTRA 2-kullanılmadı
+        
+        for (int t = 1; t <= T; t++) {
+
+            for (int p = 1; p <= P; p++) {
+
+                IloLinearNumExpr expr1 = cplex.linearNumExpr();
+
+               
+                     for (int m = 1; m <= M; m++) {
+
+                    expr1.addTerm(1.0, L[p][m][t]);
+
+                }
+
+                cplex.addLe(expr1, 1);
+            }
+        }
+        
+
+         //EXTRA 3 - kullanılmadı
+        for (Integer key : ScenerioH.keySet()) {
+
+            for (Integer i : IncidentH.keySet()) {
+
+                if (ScenerioH.get(key).ScenerioI.contains(IncidentH.get(i))) {
+
+                    IloLinearNumExpr expr1 = cplex.linearNumExpr();
+
+                    for (int t = 1; t <= T; t++) {
+                        
+                        expr1.addTerm(1.0, X[key][i][t]);
+                    
+                    }
+                    
+                    cplex.addEq(expr1, 1);
+                }
+            }
+        }
+        
+        }*/
