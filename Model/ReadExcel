@@ -1,3 +1,4 @@
+package towtruck3;
 
 import java.io.File;
 import java.io.IOException;
@@ -36,7 +37,7 @@ public class ReadExcel {
     }
 
     //Excelden okuma işlemi yapacak olan metod.
-    public void excelStandartSpeed() throws IOException, BiffException {
+    public void excelStandardSpeed() throws IOException, BiffException {
 
         //Verilen dosya yoluna göre bir dosya oluşturuyor.
         File DosyaExcel = new File(this.DosyaYolu);
@@ -45,7 +46,7 @@ public class ReadExcel {
         Workbook CalismaKitabi = Workbook.getWorkbook(DosyaExcel);
 
         //Aldığımız çalışma kitabı yani çalışma alanından ilk excel sayfasını alıyoruz.
-        Sheet ExcelSayfasi1 = CalismaKitabi.getSheet("StandartSpeed");
+        Sheet ExcelSayfasi1 = CalismaKitabi.getSheet("StandardSpeed");
 
         for (int a = 1; a < ExcelSayfasi1.getRows(); a++) {//excel sayfasının sütunlarının sayısına kadar
 
@@ -238,8 +239,8 @@ public class ReadExcel {
 
     public static void giveValueToParameters() throws IOException, BiffException {
 
-        ExcelReader.setExcelDostaYolu("C:/Users/Yasemin/Desktop/veri1.xls");
-        ExcelReader.excelStandartSpeed();
+        ExcelReader.setExcelDostaYolu("C:/Users/Yasemin/Desktop/veri40senaryo.xls");
+        ExcelReader.excelStandardSpeed();
         ExcelReader.excelDmatrix();
         ExcelReader.excelAsetBset();
         ExcelReader.excelIncident();
